@@ -44,7 +44,10 @@ public class MainClass {
 //					System.out.println("What do you want to do?")
 //				}
 //				showClickable(response);
-				System.out.println(response);
+//				System.out.println(response);
+				if(getStatusCode(response).charAt(0) == '3') {
+					System.out.println(redirect(response));
+				}
 				
 			}
 			else if (type.equals("3")) {
@@ -123,9 +126,29 @@ public class MainClass {
 		return res;
 	}
 	
-//	public static String getStatusCode(String response) {
-//		
-//	}
+	 public static String getStatusCode(String response) {
+	        String statusCode = "";
+	        
+	        String pattern = "(HTTP....) (\\w+) (.*)";
+	        Pattern r = Pattern.compile(pattern);
+	        Matcher m = r.matcher(response);
+	        if(m.find()) {
+	            statusCode = m.group(2);
+	        }
+	        return statusCode;
+	    }
+	    
+	    public static String getStatusMessage(String response) {
+	        String msg = "";
+	        
+	        String pattern = "(HTTP....) (\\w+) (.*)";
+	        Pattern r = Pattern.compile(pattern);
+	        Matcher m = r.matcher(response);
+	        if(m.find()) {
+	            msg = m.group(3);
+	        }
+	        return msg;
+	    }
 	
 	public static List<String> showClickable(String response) {
 		String pattern = "<a.*(href=\"|href=\')([^\"\']*)";
@@ -161,25 +184,18 @@ public class MainClass {
 		return 1;
 	}
 	
-//	public static void downloadAsync(URL url) {
-//		HttpRequest httpRequest = HttpRequest
-//		        .newBuilder()
-//		        .uri(new URI("https://www.google.com"))
-//		        .GET()
-//		        .build();
-//
-//		Future<InputStream> futureInputStream =
-//		        httpClient
-//		                .sendAsync(httpRequest, HttpResponse.BodyHandlers.ofInputStream())
-//		                .thenApply(HttpResponse::body);
-//
-//		InputStream inputStream = futureInputStream.get();
-//		Files.copy(inputStream, Path.of(outputPath));
-//	}
-	
-	public static void redirect() {
-		
-	}
+	public static String redirect(String response) {
+        String pattern = "(Location:) (.*)";
+        Pattern r = Pattern.compile(pattern);
+        Matcher m = r.matcher(response);
+        
+        String newUrl = ""; 
+        if(m.find()) {
+            newUrl = m.group(2);
+        }
+        
+        return makeNormalRequest(newUrl);
+    }
 	
 //	public static String makeLoginRequest(String url, String key1, String key2) {
 //		
