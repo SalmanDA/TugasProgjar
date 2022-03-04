@@ -20,7 +20,10 @@ import java.util.regex.Pattern;
 
 
 public class MainClass {
-
+	
+	private static String root;
+	private static String[] paths ;
+	
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
 		Scanner scanner = new Scanner(System.in);
@@ -42,7 +45,7 @@ public class MainClass {
 			if (type.equals("1") || type.equals("2") || type.equals("4")) {
 				boolean abort = false;
 				if (type.equals("1"))
-					response = makeNormalRequest(url);
+					response = makeNormalRequest(url, "");
 				else {
 					System.out.print("Insert Username\n>");
 					String id = scanner.nextLine();
@@ -114,7 +117,7 @@ public class MainClass {
 		scanner.close();
 	}
 	
-	public static String makeNormalRequest(String url) {
+	public static String makeNormalRequest(String url, String additional) {
 		
 		//
 		String pattern, host = "", path = "";
@@ -127,6 +130,7 @@ public class MainClass {
 			if (m.find()) {
 				host = m.group(2);
 				path = m.group(3);
+				if (!url.contains("/")) path = "/";
 			}
 		}
 		else {
@@ -140,8 +144,12 @@ public class MainClass {
 			}	
 		}
 		
-		String req = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host + "\r\n\r\n" ;
+		root = host;
+		paths = path.split("/", 0);
 		
+		String req = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host
+				+ additional + "\r\n\r\n";
+		System.out.println(req);
 		try {
 			Socket sock = new Socket(host, 80);
 			
@@ -235,7 +243,25 @@ public class MainClass {
             newUrl = m.group(2);
         }
         
-        return makeNormalRequest(newUrl);
+        String absolutePath = "";
+        if (!newUrl.contains("http")) {
+        	absolutePath = root + "/";
+        }
+        
+        if (paths.length > 1) {
+        	for (int i = 0 ; i < paths.length-1 ; i++) {
+        		absolutePath += (paths[i] + "/");
+        	}
+        }
+        
+        absolutePath += newUrl;
+        
+        String cookie = "";
+        if (isThereCookie(response)) {
+        	cookie = "\r\nCookie: " + getCookie(response);
+        }
+        
+        return makeNormalRequest(absolutePath, cookie);
     }
 	
 	public static String makeBasicAuthRequest(String url, String id, String password) {
@@ -262,6 +288,9 @@ public class MainClass {
 				if (!url.contains("/")) path = "/";
 			}	
 		}
+		
+		root = host;
+		paths = path.split("/", 0);
 		
 		// Make Base64
 		String idpass = id + ":" + password;
@@ -320,15 +349,18 @@ public class MainClass {
 			}	
 		}
 		
-		String req = "POST " + path + " HTTP/1.1\r\n" + "Host: " + host + "\r\n\r\n";
+		root = host;
+		paths = path.split("/", 0);
+		
 		try {
 			key1 = URLEncoder.encode(key1, "UTF-8" );
 		} catch (UnsupportedEncodingException e1) {
 			e1.printStackTrace();
 		}
 		String payload = "email=" + key1 + "&password=" + key2 + "&submit=";
-		req = req + payload;
-		System.out.println(req);
+		String req = "POST " + path + " HTTP/1.1\r\n" + "Host: " + host + "\r\nContent-Type: application/x-www-form-urlencoded\r\n"
+				+ "Content-Length: " + payload.length() + "\r\n\r\n" + payload;
+//		System.out.println(req);
 		try {
 			Socket sock = new Socket(host, 80);
 			
@@ -353,5 +385,25 @@ public class MainClass {
 		
 		return res;
 	}
-
+	
+	public static String getCookie(String response) {
+		String pattern = "Set-Cookie: (.*)(PHPSESSID=[^\\s]+)";
+		Pattern r = Pattern.compile(pattern);
+		Matcher m = r.matcher(response); 
+		if (m.find()) {
+			return m.group(2);
+		}
+		return "";
+	}
+	
+	public static boolean isThereCookie(String response) {
+		String pattern = "Set-Cookie: ";
+		Pattern r = Pattern.compile(pattern);
+		Matcher m = r.matcher(response); 
+		if (m.find()) {
+			return true;
+		}
+		return false;
+	}
+	
 }
