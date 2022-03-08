@@ -250,83 +250,83 @@ public class MainClass {
 	public static int download(String url, String fileName) {
 		
 		String pattern, host = "", path = "";
-		String res = "";
-		
-		if (url.contains("http")) {
-			pattern = "(http://|https://)([^/]*)(.*)";
-			Pattern r = Pattern.compile(pattern);
-			Matcher m = r.matcher(url);
-			if (m.find()) {
-				host = m.group(2);
-				path = m.group(3);
-				if (!url.contains("/")) path = "/";
-			}
-		}
-		else {
-			pattern = "([^/]*)(.*)";
-			Pattern r = Pattern.compile(pattern);
-			Matcher m = r.matcher(url);
-			if (m.find()) {
-				host = m.group(1);
-				path = m.group(2);
-				if (!url.contains("/")) path = "/";
-			}	
-		}
-		
-		root = host;
-		paths = path.split("/", 0);
-		
-		String req = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host
-				+ "\r\n\r\n";
-		
-		try {
-			Socket sock = new Socket(host, 80);
-			
-			BufferedInputStream bis = new BufferedInputStream(sock.getInputStream());
-			BufferedOutputStream bos = new BufferedOutputStream(sock.getOutputStream());
-			FileOutputStream fos = new FileOutputStream(fileName);
-			
-			bos.write(req.getBytes());
-			bos.flush();
-			
-			byte[] bRes = new byte[1];
-			int c = bis.read(bRes, 0, 1);
-			int contentLength = 0;
-			boolean isBody = false;
-			
-			while (c != -1) {
-				res += (new String(bRes));
-				
-				if (isBody) {
-					fos.write(bRes);
-				}
-				
-				if (res.contains("\r\n\r\n") && isBody == false) {
-					contentLength = getContentLength(res);
-					isBody = true;
-					header = res;
-					res = "";
-				}
-				
-				if (isBody) {
-					contentLength -= 1;
-				}
-				
-//				System.out.print(new String(bRes));
-				c = bis.read(bRes, 0, 1);
-				
-				if (isBody && contentLength == 0) {
-					break;
-				}
-			}
-			sock.close();
-			fos.close();
-		}
-		catch (IOException e) {
-			e.printStackTrace();
-			return 0;
-		}
-		return 1;
+        String res = "";
+        
+        if (url.contains("http")) {
+            pattern = "(http://|https://)([^/]*)(.*)";
+            Pattern r = Pattern.compile(pattern);
+            Matcher m = r.matcher(url);
+            if (m.find()) {
+                host = m.group(2);
+                path = m.group(3);
+                if (!url.contains("/")) path = "/";
+            }
+        }
+        else {
+            pattern = "([^/]*)(.*)";
+            Pattern r = Pattern.compile(pattern);
+            Matcher m = r.matcher(url);
+            if (m.find()) {
+                host = m.group(1);
+                path = m.group(2);
+                if (!url.contains("/")) path = "/";
+            }    
+        }
+        
+        root = host;
+        paths = path.split("/", 0);
+        
+        String req = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host
+                + "\r\n\r\n";
+        
+        try {
+            Socket sock = new Socket(host, 80);
+            
+            BufferedInputStream bis = new BufferedInputStream(sock.getInputStream());
+            BufferedOutputStream bos = new BufferedOutputStream(sock.getOutputStream());
+            FileOutputStream fos = new FileOutputStream(fileName);
+            
+            bos.write(req.getBytes());
+            bos.flush();
+            
+            byte[] bRes = new byte[1];
+            int c = bis.read(bRes, 0, 1);
+            int contentLength = 0;
+            boolean isBody = false;
+            
+            while (c != -1) {
+                res += (new String(bRes));
+                
+                if (isBody) {
+                    fos.write(bRes);
+                }
+                
+                if (res.contains("\r\n\r\n") && isBody == false) {
+                    contentLength = getContentLength(res);
+                    isBody = true;
+                    header = res;
+                    res = "";
+                }
+                
+                if (isBody) {
+                    contentLength -= 1;
+                }
+                
+//                System.out.print(new String(bRes));
+                c = bis.read(bRes, 0, 1);
+                
+                if (isBody && contentLength == 0) {
+                    break;
+                }
+            }
+            sock.close();
+            fos.close();
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+            return 0;
+        }
+        return 1;
 	}
 	
 	public static String redirect(String response) {
