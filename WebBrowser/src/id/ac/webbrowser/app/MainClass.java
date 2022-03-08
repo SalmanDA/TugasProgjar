@@ -23,6 +23,7 @@ public class MainClass {
 	
 	private static String root;
 	private static String[] paths ;
+	private static String header;
 	
 	public static void main(String[] args) {
 		// TODO Auto-generated method stub
@@ -56,14 +57,16 @@ public class MainClass {
 					else 
 						response = makeLoginRequest(url, id, password);
 				}
-				String statusCode = getStatusCode(response);
-				String statusMessage = getStatusMessage(response);
+				String statusCode = getStatusCode(header);
+				String statusMessage = getStatusMessage(header);
 				
 				if (statusCode.charAt(0) == '3') {
 					System.out.println("You got message as > " + statusMessage);
 					System.out.println("Status Code: " + statusCode);
 					System.out.println("Redirecting...");
-					response = redirect(response);
+					response = redirect(header);
+					statusCode = getStatusCode(header);
+					statusMessage = getStatusMessage(header);
 					System.out.println(response);
 				}
 				else if (statusCode.charAt(0) == '4') {
@@ -106,7 +109,7 @@ public class MainClass {
 				} catch (MalformedURLException e) {
 					e.printStackTrace();
 				}
-				int s = download(urlObject, filename);
+				int s = download(url, filename);
 				if (s == 1)
 					System.out.println("--Download Success--");
 				else 
@@ -149,7 +152,7 @@ public class MainClass {
 		
 		String req = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host
 				+ additional + "\r\n\r\n";
-		System.out.println(req);
+		
 		try {
 			Socket sock = new Socket(host, 80);
 			
@@ -159,12 +162,31 @@ public class MainClass {
 			bos.write(req.getBytes());
 			bos.flush();
 			
-			byte[] bRes = new byte[1024];
-			int c = bis.read(bRes, 0, 1024);
+			byte[] bRes = new byte[1];
+			int c = bis.read(bRes, 0, 1);
+			int contentLength = 0;
+			boolean isBody = false;
 			
 			while (c != -1) {
 				res += (new String(bRes));
-				c = bis.read(bRes, 0, 1024);
+				
+				if (res.contains("\r\n\r\n") && isBody == false) {
+					contentLength = getContentLength(res);
+					isBody = true;
+					header = res;
+					res = "";
+				}
+				
+				if (isBody) {
+					contentLength -= 1;
+				}
+				
+//				System.out.print(new String(bRes));
+				c = bis.read(bRes, 0, 1);
+				
+				if (isBody && contentLength == 0) {
+					break;
+				}
 			}
 			sock.close();
 		}
@@ -198,6 +220,17 @@ public class MainClass {
         }
         return msg;
     }
+    
+    public static int getContentLength(String response) {
+    	String pattern = "Content-Length: ([^\n]*)";
+    	Pattern r = Pattern.compile(pattern);
+		Matcher m = r.matcher(response);
+		
+		if (m.find()) {
+			return Integer.parseInt(m.group(1).trim());
+		}
+		return 0;
+    }
 	
 	public static List<String> showClickable(String response) {
 		String pattern = "<a.*(href=\"|href=\')([^\"\']*)";
@@ -214,18 +247,81 @@ public class MainClass {
 		return clickable;
 	}
 	
-	public static int download(URL url, String fileName) {
-		try (InputStream in = url.openStream();
-                BufferedInputStream bis = new BufferedInputStream(in);
-                FileOutputStream fos = new FileOutputStream(fileName)) {
- 
-            byte[] data = new byte[1024];
-            int c = bis.read(data, 0, 1024);
-            while (c != -1) {
-            	fos.write(data, 0, c);
-            	c = bis.read(data, 0, 1024);
-            }
-        }
+	public static int download(String url, String fileName) {
+		
+		String pattern, host = "", path = "";
+		String res = "";
+		
+		if (url.contains("http")) {
+			pattern = "(http://|https://)([^/]*)(.*)";
+			Pattern r = Pattern.compile(pattern);
+			Matcher m = r.matcher(url);
+			if (m.find()) {
+				host = m.group(2);
+				path = m.group(3);
+				if (!url.contains("/")) path = "/";
+			}
+		}
+		else {
+			pattern = "([^/]*)(.*)";
+			Pattern r = Pattern.compile(pattern);
+			Matcher m = r.matcher(url);
+			if (m.find()) {
+				host = m.group(1);
+				path = m.group(2);
+				if (!url.contains("/")) path = "/";
+			}	
+		}
+		
+		root = host;
+		paths = path.split("/", 0);
+		
+		String req = "GET " + path + " HTTP/1.1\r\n" + "Host: " + host
+				+ "\r\n\r\n";
+		
+		try {
+			Socket sock = new Socket(host, 80);
+			
+			BufferedInputStream bis = new BufferedInputStream(sock.getInputStream());
+			BufferedOutputStream bos = new BufferedOutputStream(sock.getOutputStream());
+			FileOutputStream fos = new FileOutputStream(fileName);
+			
+			bos.write(req.getBytes());
+			bos.flush();
+			
+			byte[] bRes = new byte[1];
+			int c = bis.read(bRes, 0, 1);
+			int contentLength = 0;
+			boolean isBody = false;
+			
+			while (c != -1) {
+				res += (new String(bRes));
+				
+				if (isBody) {
+					fos.write(bRes);
+				}
+				
+				if (res.contains("\r\n\r\n") && isBody == false) {
+					contentLength = getContentLength(res);
+					isBody = true;
+					header = res;
+					res = "";
+				}
+				
+				if (isBody) {
+					contentLength -= 1;
+				}
+				
+//				System.out.print(new String(bRes));
+				c = bis.read(bRes, 0, 1);
+				
+				if (isBody && contentLength == 0) {
+					break;
+				}
+			}
+			sock.close();
+			fos.close();
+		}
 		catch (IOException e) {
 			e.printStackTrace();
 			return 0;
@@ -257,8 +353,8 @@ public class MainClass {
         absolutePath += newUrl;
         
         String cookie = "";
-        if (isThereCookie(response)) {
-        	cookie = "\r\nCookie: " + getCookie(response);
+        if (isThereCookie(header)) {
+        	cookie = "\r\nCookie: " + getCookie(header);
         }
         
         return makeNormalRequest(absolutePath, cookie);
@@ -308,12 +404,33 @@ public class MainClass {
 			bos.write(req.getBytes());
 			bos.flush();
 			
-			byte[] bRes = new byte[1024];
-			int c = bis.read(bRes, 0, 1024);
+			byte[] bRes = new byte[1];
+			int c = bis.read(bRes, 0, 1);
+			int contentLength = 0;
+			boolean isBody = false;
 			
 			while (c != -1) {
 				res += (new String(bRes));
-				c = bis.read(bRes, 0, 1024);
+				
+				if (res.contains("\r\n\r\n") && isBody == false) {
+//					System.out.println("duh"+res);
+					contentLength = getContentLength(res);
+//					System.out.println(contentLength);
+					isBody = true;
+					header = res;
+					res = "";
+				}
+				
+				if (isBody) {
+					contentLength -= 1;
+				}
+				
+//				System.out.print(new String(bRes));
+				c = bis.read(bRes, 0, 1);
+				
+				if (isBody && contentLength == 0) {		
+					break;
+				}
 			}
 			sock.close();
 		}
@@ -370,12 +487,31 @@ public class MainClass {
 			bos.write(req.getBytes());
 			bos.flush();
 			
-			byte[] bRes = new byte[1024];
-			int c = bis.read(bRes, 0, 1024);
+			byte[] bRes = new byte[1];
+			int c = bis.read(bRes, 0, 1);
+			int contentLength = 0;
+			boolean isBody = false;
 			
 			while (c != -1) {
 				res += (new String(bRes));
-				c = bis.read(bRes, 0, 1024);
+				
+				if (res.contains("\r\n\r\n") && isBody == false) {
+					contentLength = getContentLength(res);
+					isBody = true;
+					header = res;
+					res = "";
+				}
+				
+				if (isBody) {
+					contentLength -= 1;
+				}
+				
+//				System.out.print(new String(bRes));
+				c = bis.read(bRes, 0, 1);
+				
+				if (isBody && contentLength == 0) {
+					break;
+				}
 			}
 			sock.close();
 		}
